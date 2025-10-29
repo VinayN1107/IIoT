@@ -1,0 +1,10 @@
+#define LED_PIN D1 
+void setup() { 
+ pinMode(LED_PIN, OUTPUT); // Set D1 (GPIO 5) as an output 
+} 
+void loop() { 
+  digitalWrite(LED_PIN, HIGH);  // Turn the LED on 
+  delay(500); // Delay for 1 second (1000 milliseconds) 
+  digitalWrite(LED_PIN, LOW);    // Turn the LED off 
+  delay(250); // Delay for 1 second (1000 milliseconds) 
+} 
