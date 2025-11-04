@@ -1,0 +1,54 @@
+#include <ESP8266WiFi.h>
+#include <ThingSpeak.h>
+
+const char *ssid = "VINAY 6925";
+const char *pass = "VINAY 6925";
+
+long channelID = 2300119;
+const char writeAPIkey[] = "RS6URF374F43NAR0";
+
+WiFiClient client;
+
+#define sensor A0   // Smoke sensor on A0 pin of NodeMCU
+const int threshold = 50;
+#define led D0
+
+void setup() {
+  Serial.begin(9600);
+
+  pinMode(led, OUTPUT);
+
+  WiFi.begin(ssid, pass);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(200);
+    Serial.print(".");
+  }
+  Serial.println();
+  Serial.println("NodeMCU is connected!");
+  Serial.println(WiFi.localIP());
+
+  ThingSpeak.begin(client);
+}
+
+void smokelevel() {
+  int value = analogRead(sensor);
+  value = map(value, 0, 1024, 0, 100); // Map to percentage
+  ThingSpeak.writeField(channelID, 1, value, writeAPIkey);
+  Serial.println("Smoke level: " + (String)value);
+
+  if (value >= threshold) {
+    digitalWrite(led, HIGH);
+    Serial.println("⚠ Smoke detected!");
+  } else {
+    digitalWrite(led, LOW);
+    Serial.println("✅ No smoke detected");
+  }
+
+  int light = digitalRead(led);
+  ThingSpeak.writeField(channelID, 2, light, writeAPIkey);
+}
+
+void loop() {
+  smokelevel();
+  delay(15000);  // Minimum delay for ThingSpeak
+}
