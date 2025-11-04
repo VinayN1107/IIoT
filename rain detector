@@ -1,0 +1,57 @@
+#include <ESP8266WiFi.h>
+#include <ThingSpeak.h>
+
+const char *ssid = "VINAY 6925";
+const char *pass = "VINAY 6925";
+long channelID = 3043290;
+const char writeAPIkey[] ="8ZB1TQP0FJ9BIZ53";
+WiFiClient client;
+
+#define sensor A0 // Rain sensor connected to A0
+#define led D2    // LED indicator
+
+void setup() {
+  Serial.begin(9600);
+  WiFi.begin(ssid, pass);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(200);
+    Serial.print(".");
+  }
+  Serial.println();
+  Serial.println("NodeMCU is connected!");
+  Serial.println(WiFi.localIP());
+
+  pinMode(led, OUTPUT);
+
+  ThingSpeak.begin(client);
+}
+
+void loop() {
+  int sensorValue = analogRead(sensor);
+  Serial.print("Analog sensor value: ");
+  Serial.println(sensorValue);
+
+  // Rain presence if sensor reading is less than max (1023)
+  int rainDetected = (sensorValue < 1023) ? 1 : 0;
+
+  if (rainDetected == 1) {
+    digitalWrite(led, HIGH);  // LED ON when rain detected
+  } else {
+    digitalWrite(led, LOW);   // LED OFF if no rain
+  }
+
+  Serial.print("Rain detected? ");
+  Serial.println(rainDetected);
+
+  int response = ThingSpeak.writeField(channelID, 1, rainDetected, writeAPIkey);
+
+  if (response == 200) {
+    Serial.println("Data sent successfully.");
+  } else {
+    Serial.print("Failed to send data. HTTP error code: ");
+    Serial.println(response);
+  }
+
+  delay(5000); // ThingSpeak free account rate limit
+}
