@@ -1,0 +1,79 @@
+#include <ESP8266WiFi.h>
+#include <DHT.h>
+#include <ThingSpeak.h>
+
+// ====== WiFi Details ======
+const char* ssid = "VINAY 6925";        // replace with your WiFi SSID
+const char* password = "VINAY 6925"; // replace with your WiFi Password
+
+// ====== ThingSpeak Details ======
+unsigned long myChannelNumber = 3164344;   // Replace with your Channel ID
+const char * myWriteAPIKey = "DBKWJZ7PAX8WPKSI"; // Replace with your Write API Key
+
+// ====== DHT Sensor Settings ======
+#define DHTPIN D4       // GPIO2 (NodeMCU D4 pin) - connect DHT data pin
+#define DHTTYPE DHT11   // use DHT11 or DHT22 depending on your sensor
+DHT dht(DHTPIN, DHTTYPE);
+
+WiFiClient client;
+
+unsigned long lastUpdateTime = 0;  // track last update
+const long updateInterval = 20000; // 20 seconds
+
+void setup() {
+  Serial.begin(115200);
+  WiFi.begin(ssid, password);
+
+  Serial.print("Connecting to WiFi");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("\nWiFi Connected");
+
+  ThingSpeak.begin(client);
+  dht.begin();
+}
+
+void loop() {
+  // Reconnect WiFi if disconnected
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("WiFi Disconnected! Reconnecting...");
+    WiFi.begin(ssid, password);
+    delay(5000);  // small wait before retry
+    return;
+  }
+
+  unsigned long currentMillis = millis();
+
+  // Check if 20 seconds passed
+  if (currentMillis - lastUpdateTime >= updateInterval) {
+    lastUpdateTime = currentMillis;
+
+    float humidity = dht.readHumidity();       // Humidity in %
+    float temperature = dht.readTemperature(); // Temperature in °C
+
+    if (isnan(humidity) || isnan(temperature)) {
+      Serial.println("Failed to read from DHT sensor!");
+      return;
+    }
+
+    Serial.print("Temperature: ");
+    Serial.print(temperature);
+    Serial.print(" °C | Humidity: ");
+    Serial.print(humidity);
+    Serial.println(" %");
+
+    // Send data to ThingSpeak
+    ThingSpeak.setField(1, temperature);  // Field1 = Temperature
+    ThingSpeak.setField(2, humidity);     // Field2 = Humidity
+
+    int status = ThingSpeak.writeFields(myChannelNumber, myWriteAPIKey);
+
+    if (status == 200) {
+      Serial.println("Data sent to ThingSpeak successfully");
+    } else {
+      Serial.println("Error sending data to ThingSpeak. HTTP error code " + String(status));
+    }
+  }
+}
