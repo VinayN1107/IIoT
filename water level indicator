@@ -1,0 +1,81 @@
+#include <ESP8266WiFi.h>
+#include <ThingSpeak.h>
+#include <Ultrasonic.h>
+
+// Pin Definitions
+const int trigPin = D1;
+const int echoPin = D2;
+const int motorPin = D8;
+
+// WiFi and ThingSpeak Configuration
+const char *ssid = "VINAY 6925";
+const char *password = "VINAY 6925";
+const char *apiKey = "LFJEZCDQZPLIM6N2";
+unsigned long channelID = 3164768;
+
+Ultrasonic ultrasonic(trigPin, echoPin);
+WiFiClient client;
+
+void setup() {
+  Serial.begin(115200);
+
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+  pinMode(motorPin, OUTPUT);
+  digitalWrite(motorPin, LOW); // Initially motor is off
+
+  // Connect to WiFi
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(100);
+    Serial.println("Connecting to WiFi...");
+  }
+  Serial.println("Connected to WiFi");
+
+  // Initialize ThingSpeak
+  ThingSpeak.begin(client);
+}
+
+void loop() {
+  int distance = ultrasonic.read(CM);
+  int waterlevel = 0;
+
+  Serial.print("Distance: ");
+  Serial.print(distance);
+  Serial.println(" cm");
+
+  // Water Level Decision Logic
+  if (distance <= 3) {
+    waterlevel = 100;
+    digitalWrite(motorPin, LOW);
+  }
+  else if (distance > 3 && distance <= 5) {
+    waterlevel = 50;
+    digitalWrite(motorPin, LOW);
+  }
+  else if (distance > 5 && distance < 8) {
+    waterlevel = 25;
+    digitalWrite(motorPin, LOW);
+  }
+  else { // distance >= 8
+    waterlevel = 0;
+    digitalWrite(motorPin, HIGH);
+  }
+
+  Serial.print("Water Level: ");
+  Serial.print(waterlevel);
+  Serial.println("%");
+
+  if (digitalRead(motorPin) == HIGH) {
+    Serial.println("Motor is suie suie");
+  } else {
+    Serial.println("Motor is puss puss");
+  }
+
+  // Upload data to ThingSpeak
+  ThingSpeak.setField(1, distance);
+  ThingSpeak.setField(2, waterlevel);
+  ThingSpeak.writeFields(channelID, apiKey);
+
+  delay(500); // Delay between readings
+}
