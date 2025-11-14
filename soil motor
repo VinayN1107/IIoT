@@ -1,0 +1,82 @@
+#define BLYNK_TEMPLATE_ID "TMPL3jHKvTLso"
+#define BLYNK_TEMPLATE_NAME "soillll"
+#define BLYNK_AUTH_TOKEN "8uf0faQ5KInVs6M7Z8lvbutbjforwYbn"
+
+#include <ESP8266WiFi.h>
+#include <BlynkSimpleEsp8266.h>
+
+// ====== Blynk Auth & WiFi ======
+char auth[] = "8uf0faQ5KInVs6M7Z8lvbutbjforwYbn";
+char ssid[] = "VINAY 6925";
+char pass[] = "VINAY 6925";
+
+// ====== Pin Configuration ======
+#define sensorPin A0
+#define relayPin D1
+
+// ====== Thresholds ======
+int moistureLow = 35;   // Motor turns ON below this (%)
+int moistureHigh = 60;  // Motor turns OFF above this (%)
+
+// ====== Variables ======
+bool manualControl = false; // Manual override flag
+bool motorState = false;    // false = OFF, true = ON
+BlynkTimer timer;
+
+// ====== Function to Control Motor (NC relay logic) ======
+void controlMotor(bool state) {
+  motorState = state;
+  // LOW = Relay ON = Motor OFF (since NC connection)
+  digitalWrite(relayPin, state ? HIGH : LOW);
+  Serial.print("Motor: ");
+  Serial.println(state ? "ON" : "OFF");
+}
+
+// ====== Read Soil Moisture ======
+void readSoilMoisture() {
+  int sensorValue = analogRead(sensorPin);
+  int moisturePercent = map(sensorValue, 1023, 0, 0, 100);
+  moisturePercent = constrain(moisturePercent, 0, 100);
+  Blynk.virtualWrite(V0, moisturePercent);
+
+  Serial.print("Soil Moisture: ");
+  Serial.print(moisturePercent);
+  Serial.println("%");
+
+  // ====== Auto Mode Logic ======
+  if (!manualControl) {
+    if (moisturePercent <= moistureLow && !motorState) {
+      controlMotor(true);   // Turn motor ON
+    } 
+    else if (moisturePercent >= moistureHigh && motorState) {
+      controlMotor(false);  // Turn motor OFF
+    }
+  }
+}
+
+// ====== Blynk Switch (Manual Override) ======
+BLYNK_WRITE(V1) {
+  int value = param.asInt();
+  if (value == 1) {
+    manualControl = true;
+    controlMotor(true);  // Force motor ON manually
+  } else {
+    manualControl = false;
+    readSoilMoisture();  // Resume auto control
+  }
+}
+
+// ====== Setup ======
+void setup() {
+  Serial.begin(9600);
+  pinMode(relayPin, OUTPUT);
+  digitalWrite(relayPin, LOW); // Motor OFF initially
+  Blynk.begin(auth, ssid, pass);
+  timer.setInterval(2000L, readSoilMoisture);
+}
+
+// ====== Loop ======
+void loop() {
+  Blynk.run();
+  timer.run();
+}
