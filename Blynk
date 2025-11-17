@@ -1,0 +1,34 @@
+#define BLYNK_TEMPLATE_ID "TMPL3gj6eCleR"
+#define BLYNK_TEMPLATE_NAME "bullb"
+#define BLYNK_AUTH_TOKEN "TPqVv8KwO89RGNVce49snoWzmK9rzPj7"
+
+#define BLYNK_PRINT Serial
+
+#include <ESP8266WiFi.h>
+#include <BlynkSimpleEsp8266.h>
+
+// WiFi credentials
+char ssid[] = "VINAY 6925";
+char pass[] = "VINAY 6925";
+
+// Relay control pin
+#define relay1 D0
+
+// V0 from Blynk app controls the relay
+BLYNK_WRITE(V0) {
+  int value = param.asInt(); 
+  digitalWrite(relay1, value == 1 ? LOW : HIGH); // LOW = ON
+}
+
+void setup() {
+  Serial.begin(9600);
+
+  pinMode(relay1, OUTPUT);
+  digitalWrite(relay1, HIGH); // Start OFF
+
+  Blynk.begin(BLYNK_AUTH_TOKEN, ssid, pass, "blynk.cloud", 80);
+}
+
+void loop() {
+  Blynk.run();
+}
