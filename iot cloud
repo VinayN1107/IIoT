@@ -1,0 +1,71 @@
+#include <ArduinoIoTCloud.h>
+#include <Arduino_ConnectionHandler.h>
+#include <ESP8266WiFi.h>  // Fixed library name
+
+// ====== ENTER YOUR CREDENTIALS ======
+const char DEVICE_LOGIN_NAME[]  = "22738824-811f-47f0-9018-3980b2c3bea2"; // From Arduino IoT Cloud
+const char SSID[]               = "VINAY 6925";
+const char PASS[]               = "VINAY 6925";
+const char DEVICE_KEY[]         = "8Rp03d21Ah1tmRehsMC02mRMR"; // From Arduino IoT Cloud
+// ====================================
+
+// Relay pin
+#define RelayPin1 5  // D1
+#define wifiLed   16 // D0
+
+int toggleState_1 = 0; // Stores relay ON/OFF state
+
+// Cloud variable
+CloudSwitch switch1;
+
+void onSwitch1Change(); // Function prototype
+
+// Link cloud variables
+void initProperties() {
+  ArduinoCloud.setBoardId(DEVICE_LOGIN_NAME);
+  ArduinoCloud.setSecretDeviceKey(DEVICE_KEY);
+  ArduinoCloud.addProperty(switch1, READWRITE, ON_CHANGE, onSwitch1Change);
+}
+
+// Connect WiFi
+WiFiConnectionHandler ArduinoIoTPreferredConnection(SSID, PASS);
+
+void setup() {
+  Serial.begin(9600);
+  delay(1500);
+
+  initProperties();
+  ArduinoCloud.begin(ArduinoIoTPreferredConnection);
+
+  setDebugMessageLevel(2);
+  ArduinoCloud.printDebugInfo();
+
+  pinMode(RelayPin1, OUTPUT);
+  pinMode(wifiLed, OUTPUT);
+
+  // Start with relay OFF
+  digitalWrite(RelayPin1, HIGH);
+  digitalWrite(wifiLed, HIGH);
+}
+
+void loop() {
+  ArduinoCloud.update();
+
+  if (WiFi.status() != WL_CONNECTED) {
+    digitalWrite(wifiLed, HIGH); // WiFi OFF indicator
+  } else {
+    digitalWrite(wifiLed, LOW);  // WiFi ON indicator
+  }
+}
+
+void onSwitch1Change() {
+  if (switch1 == 1) {
+    digitalWrite(RelayPin1, LOW);  // Relay ON
+    Serial.println("Bulb ON");
+    toggleState_1 = 1;
+  } else {
+    digitalWrite(RelayPin1, HIGH); // Relay OFF
+    Serial.println("Bulb OFF");
+    toggleState_1 = 0;
+  }
+}
