@@ -1,0 +1,134 @@
+#include <ESP8266WiFi.h>
+#include <ThingSpeak.h>
+
+// ---------- WiFi ----------
+const char* ssid     = "VINAY 6925";    // your WiFi name
+const char* password = "VINAY 6925";    // your WiFi password
+
+// ---------- ThingSpeak ----------
+unsigned long channelID = 3167866;       // <-- REPLACE with your channel ID
+const char* writeAPIKey = "5SZ3BODNFPW4Z272"; // <-- REPLACE with your WRITE API key
+WiFiClient client;
+
+// ---------- TCS3200 Pins ----------
+#define S0        D4
+#define S1        D5
+#define S2        D6
+#define S3        D7
+#define sensorOut D8
+
+// ---------- Color values ----------
+int redValue, greenValue, blueValue;
+
+void setup() {
+  Serial.begin(9600);
+
+  // WiFi setup
+  Serial.print("Connecting to WiFi");
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("\nWiFi Connected!");
+  Serial.print("IP: ");
+  Serial.println(WiFi.localIP());
+
+  ThingSpeak.begin(client);
+
+  // TCS3200 setup
+  pinMode(S0, OUTPUT);
+  pinMode(S1, OUTPUT);
+  pinMode(S2, OUTPUT);
+  pinMode(S3, OUTPUT);
+  pinMode(sensorOut, INPUT);
+
+  // Set frequency scaling (S0, S1)
+  digitalWrite(S0, HIGH);
+  digitalWrite(S1, HIGH);   // HIGH/HIGH = 100% (you can change to LOW for 2%, HIGH/LOW for 20%)
+}
+
+void loop() {
+  // --- Step 1: Read Colors ---
+  redValue   = getColor('R');
+  greenValue = getColor('G');
+  blueValue  = getColor('B');
+
+  Serial.print("R: "); Serial.print(redValue);
+  Serial.print("  G: "); Serial.print(greenValue);
+  Serial.print("  B: "); Serial.println(blueValue);
+
+  // --- Step 2: Detect Color & set one-hot fields ---
+  int redField   = 0;
+  int greenField = 0;
+  int blueField  = 0;
+  String detectedColor = "";
+
+  if (redValue < greenValue && redValue < blueValue) {
+    detectedColor = "RED";
+    Serial.println("Action: Move to RED bin");
+    redField = 1;
+    greenField = 0;
+    blueField = 0;
+  }
+  else if (greenValue < redValue && greenValue < blueValue) {
+    detectedColor = "GREEN";
+    Serial.println("Action: Move to GREEN bin");
+    redField = 0;
+    greenField = 1;
+    blueField = 0;
+  }
+  else if (blueValue < redValue && blueValue < greenValue) {
+    detectedColor = "BLUE";
+    Serial.println("Action: Move to BLUE bin");
+    redField = 0;
+    greenField = 0;
+    blueField = 1;
+  }
+  else {
+    detectedColor = "UNKNOWN";
+    Serial.println("Action: UNKNOWN color - no bin");
+    redField = 0;
+    greenField = 0;
+    blueField = 0;
+  }
+
+  Serial.println("Detected Color: " + detectedColor);
+
+  // --- Step 3: Send Data to ThingSpeak ---
+  ThingSpeak.setField(1, redField);    // Field 1 = RED (1 or 0)
+  ThingSpeak.setField(2, greenField);  // Field 2 = GREEN (1 or 0)
+  ThingSpeak.setField(3, blueField);   // Field 3 = BLUE (1 or 0)
+
+  int x = ThingSpeak.writeFields(channelID, writeAPIKey);
+  if (x == 200) {
+    Serial.println("ThingSpeak: Data sent!");
+  } else {
+    Serial.println("ThingSpeak error: " + String(x));
+  }
+
+  Serial.println("----------------------------");
+  delay(5000); // wait before next cycle
+}
+
+// ---------- Function to read R,G,B ----------
+int getColor(char color) {
+  // Select color filter
+  if (color == 'R') {
+    digitalWrite(S2, LOW);
+    digitalWrite(S3, LOW);
+  }
+  if (color == 'G') {
+    digitalWrite(S2, HIGH);
+    digitalWrite(S3, HIGH);
+  }
+  if (color == 'B') {
+    digitalWrite(S2, LOW);
+    digitalWrite(S3, HIGH);
+  }
+
+  // Read pulse from sensor
+  int pulse = pulseIn(sensorOut, LOW);   // pulse width in microseconds
+  if (pulse == 0) pulse = 1000000;      // avoid 0 if no pulse detected
+  return pulse;
+}
