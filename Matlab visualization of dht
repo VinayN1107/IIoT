@@ -1,0 +1,78 @@
+% Enter your MATLAB cod% ----------------------------------------------------
+% ThingSpeak Visualization: DHT Temperature & Humidity
+% Last 30 Readings with Max, Min, Avg
+% ----------------------------------------------------
+
+clc;
+clear;
+
+% ----- USER SETTINGS -----
+channelID = 3164344;              % ← replace
+readAPIKey = 'QGS2EIM018501RI9';         % ← replace (empty '' if public)
+
+% ----- READ LAST 30 POINTS -----
+[tempData, timeStamps] = thingSpeakRead(channelID, ...
+    'Fields', 1, 'NumPoints', 30, 'ReadKey', readAPIKey);
+
+humData = thingSpeakRead(channelID, ...
+    'Fields', 2, 'NumPoints', 30, 'ReadKey', readAPIKey);
+
+% Check for data
+if isempty(tempData) || isempty(humData)
+    error('No data received. Check channel ID or API key.');
+end
+
+% ---- STATISTICS ----
+tempMax = max(tempData); tempMin = min(tempData); tempAvg = mean(tempData);
+humMax  = max(humData);  humMin  = min(humData);  humAvg  = mean(humData);
+
+% ---- SINGLE FIGURE WITH SUBPLOTS ----
+figure;
+
+% ---------------- TEMPERATURE PLOT -----------------
+subplot(2,1,1);
+plot(timeStamps, tempData, 'LineWidth', 2);
+hold on;
+plot(timeStamps, tempMax*ones(size(tempData)), '--r');
+plot(timeStamps, tempMin*ones(size(tempData)), '--g');
+plot(timeStamps, tempAvg*ones(size(tempData)), '--k');
+hold off;
+
+title('Temperature - Last 30 Readings');
+xlabel('Time');
+ylabel('Temperature (°C)');
+grid on;
+
+legend('Temp', ...
+       ['Max = ' num2str(tempMax)], ...
+       ['Min = ' num2str(tempMin)], ...
+       ['Avg = ' num2str(tempAvg)], ...
+       'Location', 'best');
+
+% ---------------- HUMIDITY PLOT -----------------
+subplot(2,1,2);
+plot(timeStamps, humData, 'LineWidth', 2);
+hold on;
+plot(timeStamps, humMax*ones(size(humData)), '--r');
+plot(timeStamps, humMin*ones(size(humData)), '--g');
+plot(timeStamps, humAvg*ones(size(humData)), '--k');
+hold off;
+
+title('Humidity - Last 30 Readings');
+xlabel('Time');
+ylabel('Humidity (%)');
+grid on;
+
+legend('Humidity', ...
+       ['Max = ' num2str(humMax)], ...
+       ['Min = ' num2str(humMin)], ...
+       ['Avg = ' num2str(humAvg)], ...
+       'Location', 'best');
+
+% ---- PRINT RESULTS ----
+
+disp('----- Temperature Stats -----');
+fprintf('Max: %.2f°C\nMin: %.2f°C\nAvg: %.2f°C\n\n', tempMax, tempMin, tempAvg);
+
+disp('----- Humidity Stats -----');
+fprintf('Max: %.2f%%\nMin: %.2f%%\nAvg: %.2f%%\n', humMax, humMin, humAvg); 
