@@ -1,0 +1,50 @@
+#include <ESP8266WiFi.h>
+#include <ThingSpeak.h>
+
+const char *ssid = "VINAY 6925";   // WiFi SSID
+const char *pass = "VINAY 6925";          // WiFi Password
+
+long channelID = 3171466;               // ThingSpeak Channel ID
+const char writeAPIkey[] = "XXQQ368GZG9U76T6";  // ThingSpeak Write API Key
+
+WiFiClient client;
+
+#define sensor A0  // Soil moisture sensor connected to A0 pin
+
+void setup()
+{
+  Serial.begin(9600);
+
+  // Connect to WiFi
+  WiFi.begin(ssid, pass);
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    delay(200);
+    Serial.print(".");
+  }
+  Serial.println();
+  Serial.println("NodeMCU is connected!");
+  Serial.println(WiFi.localIP());
+
+  // Initialize ThingSpeak
+  ThingSpeak.begin(client);
+}
+
+void soilMoisture_Sensor()
+{
+  int value = analogRead(sensor);              // Read raw analog value (0-1023)
+  value = map(value, 0, 1024, 0, 100);         // Convert to percentage
+  value = (value - 100) * -1;                  // Invert so higher value = wetter soil
+
+  // Send moisture value to ThingSpeak (Field 1)
+  ThingSpeak.writeField(channelID, 1, value, writeAPIkey);
+
+  // Print for debugging
+  Serial.println("Soil Moisture Level: " + (String)value + "%");
+}
+
+void loop()
+{
+  soilMoisture_Sensor();
+  delay(10000); // Send every 2 seconds
+}
