@@ -1,0 +1,117 @@
+#include <ESP8266WiFi.h>
+
+String apiKey = "89J00FQ4E17N6YC7"; // your Write API Key
+const char* ssid = "VINAY 6925";
+const char* password = "VINAY 6925";
+
+const char* server = "api.thingspeak.com";
+WiFiClient client;
+
+const int trigPin = D6;
+const int echoPin = D7;
+
+long duration = 0;
+int distance = -1;
+
+const unsigned long uploadInterval = 15000UL;  // 15 seconds
+unsigned long lastUpload = 0;
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+
+  WiFi.begin(ssid, password);
+  Serial.print("Connecting to WiFi ");
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(250);
+    Serial.print(".");
+  }
+
+  Serial.println();
+  Serial.print("WiFi connected, IP: ");
+  Serial.println(WiFi.localIP());
+
+  lastUpload = millis() - uploadInterval;
+}
+
+void loop() {
+  if (WiFi.status() != WL_CONNECTED) {
+    WiFi.reconnect();
+    delay(2000);
+  }
+
+  if (millis() - lastUpload >= uploadInterval) {
+    readUltrasonic();
+    sendToThingSpeak();
+    lastUpload = millis();
+  }
+
+  delay(50);
+}
+
+void readUltrasonic() {
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+
+  duration = pulseIn(echoPin, HIGH, 30000);
+
+  if (duration == 0) {
+    distance = -1;
+    Serial.println("Distance: out of range");
+  } else {
+    distance = duration * 0.034 / 2;
+    Serial.print("Distance = ");
+    Serial.print(distance);
+    Serial.println(" cm");
+  }
+}
+
+void sendToThingSpeak() {
+  String postData = "api_key=" + apiKey + "&field1=" + String(distance);
+
+  Serial.println("Connecting to ThingSpeak...");
+
+  if (!client.connect(server, 80)) {
+    Serial.println("Connection failed.");
+    return;
+  }
+
+  client.print("POST /update HTTP/1.1\r\n");
+  client.print("Host: api.thingspeak.com\r\n");
+  client.print("Connection: close\r\n");
+  client.print("Content-Type: application/x-www-form-urlencoded\r\n");
+  client.print("Content-Length: " + String(postData.length()) + "\r\n\r\n");
+  client.print(postData);
+
+  // Wait for server reply
+  unsigned long start = millis();
+  while (!client.available() && millis() - start < 5000) {
+    yield();
+  }
+
+  if (!client.available()) {
+    Serial.println("No response.");
+    return;
+  }
+
+  // Read the HTTP status only
+  String statusLine = client.readStringUntil('\n');
+  statusLine.trim();
+
+  Serial.print("Status: ");
+  Serial.println(statusLine);
+
+  if (statusLine.indexOf("200 OK") != -1) {
+    Serial.println("Upload attempt done.");
+  } else {
+    Serial.println("Upload failed.");
+  }
+
+  client.stop();
+}
